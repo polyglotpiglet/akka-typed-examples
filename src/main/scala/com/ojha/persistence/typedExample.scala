@@ -1,8 +1,8 @@
 package com.ojha.persistence
 
 import akka.actor.typed.Behavior
-import akka.persistence.typed.scaladsl.PersistentActor
-import akka.persistence.typed.scaladsl.PersistentActor.Effect
+import akka.persistence.typed.PersistenceId
+import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}
 
 sealed trait TypedExampleCommand extends Serializable
 case class TypedExampleWriteCommand(data: String) extends TypedExampleCommand
@@ -27,22 +27,18 @@ object TypedExampleMain extends App {
 }
 
 object TypedExample {
-
-  def behavior: Behavior[TypedExampleCommand] =
-    PersistentActor.immutable[TypedExampleCommand, TypedEvent, TypedExampleState](
-      persistenceId = "example-id",
-      initialState = new TypedExampleState,
-      commandHandler = PersistentActor.CommandHandler {
-        (_, state, cmd) ⇒
-          cmd match {
-            case TypedExampleWriteCommand(data) => Effect.persist(TypedEvent(s"$data ${state.size}"))
-            case TypedExamplePrint => println(state); Effect.none
-          }
-      },
+  def behavior: Behavior[TypedExampleCommand] = {
+    EventSourcedBehavior[TypedExampleCommand, TypedEvent, TypedExampleState](
+      persistenceId = PersistenceId("example-id"),
+      emptyState = new TypedExampleState,
+      commandHandler =
+        (state, cmd) => cmd match {
+          case TypedExampleWriteCommand(data) => Effect.persist(TypedEvent(s"$data ${state.size}"))
+          case TypedExamplePrint => println(state); Effect.none
+        },
       eventHandler = (state, event) ⇒ event match {
         case TypedEvent(_) => state.updated(event)
-      }
+      },
     )
-
+  }
 }
-
